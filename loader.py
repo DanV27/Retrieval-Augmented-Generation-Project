@@ -1,10 +1,11 @@
 import re
 import pdfplumber
+from pathlib import Path
 
 
-def pdfCleaner():
+def load_pdf(file):
     # Open the PDF and extract text
-    with pdfplumber.open("chicagoBudget2026.pdf") as pdf:
+    with pdfplumber.open(file) as pdf:
         full_text = ""
         for page in pdf.pages:
             text = page.extract_text()
@@ -19,7 +20,16 @@ def pdfCleaner():
 
     # 3. Clean up any trailing spaces before a newline
     cleaned_text = re.sub(r' \n', '\n', cleaned_text)
+    print(cleaned_text)
 
     return cleaned_text
+
+# Loops through files in the specified directory, skipping subfolders
+for file in Path("/Users/daniel/Desktop/Retrieval-Augmented-Generation-Project/data/raw").iterdir():
+    
+    if file.is_file():
+        file_type = file.name[-4:]
+        if file_type == '.pdf':
+            load_pdf("/Users/daniel/Desktop/Retrieval-Augmented-Generation-Project/data/raw/"+file.name)
 
 
