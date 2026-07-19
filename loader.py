@@ -1,6 +1,10 @@
+import hashlib
 import re
 import pdfplumber
 from pathlib import Path
+
+
+
 
 
 def load_pdf(file):
@@ -23,6 +27,19 @@ def load_pdf(file):
     print(cleaned_text)
 
     return cleaned_text
+
+
+def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
+    return {
+        "doc_id": hashlib.md5(str(path).encode()).hexdigest()[:12],
+        "title": path.stem,
+        "source_path": str(path),
+        "format": fmt,
+        "text": text,
+        "metadata": metadata,
+    }
+
+
 
 # Loops through files in the specified directory, skipping subfolders
 for file in Path("/Users/daniel/Desktop/Retrieval-Augmented-Generation-Project/data/raw").iterdir():
