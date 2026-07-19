@@ -7,26 +7,19 @@ from pathlib import Path
 
 
 
-def load_pdf(file):
+def load_pdf(path: Path):
     # Open the PDF and extract text
-    with pdfplumber.open(file) as pdf:
-        full_text = ""
+
+    pages = []
+
+    with pdfplumber.open(path) as pdf:
+
         for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                full_text += text + "\n"
+            pages.append(page.extract_text() or "") # "" is for if page is empty(none)
+        text = "\n".join(pages)
 
-    # 1. Collapse single line breaks (preceded/followed by characters) into a space
-    cleaned_text = re.sub(r'(?<!\n)\n(?!\n)', ' ', full_text)
 
-    # 2. Fix multiple spaces caused by collapsed lines
-    cleaned_text = re.sub(r' {2,}', ' ', cleaned_text)
-
-    # 3. Clean up any trailing spaces before a newline
-    cleaned_text = re.sub(r' \n', '\n', cleaned_text)
-    print(cleaned_text)
-
-    return cleaned_text
+    return make_record(file, "pdf", text, metadata={"num_pages": len(pages)})
 
 
 def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
@@ -40,13 +33,18 @@ def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
     }
 
 
-
+records = []
 # Loops through files in the specified directory, skipping subfolders
-for file in Path("/Users/daniel/Desktop/Retrieval-Augmented-Generation-Project/data/raw").iterdir():
-    
-    if file.is_file():
-        file_type = file.name[-4:]
-        if file_type == '.pdf':
-            load_pdf("/Users/daniel/Desktop/Retrieval-Augmented-Generation-Project/data/raw/"+file.name)
+for file in Path("data/raw").iterdir():
+    if file.is_file() and file.suffix.lower() == ".pdf":
+        records.append(load_pdf(file))
+
+
+print(f"Loaded {len(records)} documents")
+
+if records:
+    r = records[0]
+    print(r["doc_id"], "|", r["title"], "|", r["metadata"]["num_pages"], "pages")
+    print(r["text"][:1500])
 
 
