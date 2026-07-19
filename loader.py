@@ -19,7 +19,7 @@ def load_pdf(path: Path):
         text = "\n".join(pages)
 
 
-    return make_record(file, "pdf", text, metadata={"num_pages": len(pages)})
+    return make_record(path, "pdf", text, metadata={"num_pages": len(pages)})
 
 
 def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
@@ -32,19 +32,17 @@ def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
         "metadata": metadata,
     }
 
+def load_corpus(raw_dir="data/raw") -> list[dict]:
+    records = []
+    for file in Path(raw_dir).iterdir():
+        if file.is_file() and file.suffix.lower() == ".pdf":
+            records.append(load_pdf(file))
+    return records
 
-records = []
-# Loops through files in the specified directory, skipping subfolders
-for file in Path("data/raw").iterdir():
-    if file.is_file() and file.suffix.lower() == ".pdf":
-        records.append(load_pdf(file))
 
-
+records = load_corpus()
 print(f"Loaded {len(records)} documents")
-
 if records:
     r = records[0]
     print(r["doc_id"], "|", r["title"], "|", r["metadata"]["num_pages"], "pages")
     print(r["text"][:1500])
-
-
