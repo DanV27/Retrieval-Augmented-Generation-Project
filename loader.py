@@ -38,11 +38,22 @@ def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
     }
 
 def load_corpus(raw_dir="data/raw") -> list[dict]:
-    records = []
+    records, quarantined = [], []
     for file in Path(raw_dir).iterdir():
-        if file.is_file() and file.suffix.lower() == ".pdf":
-            records.append(load_pdf(file))
-    return records
+        if not file.is_file() and file.suffix.lower() == ".pdf":
+            continue
+        try:
+            rec = load_pdf(file)
+            if len(rec["text"].strip()) < 100:        # empty/near-empty
+                raise ValueError("extracted text too short")
+            if rec["text"].count("�") > 50:           # encoding garbage
+                raise ValueError("encoding garbage detected")
+            records.append(rec)
+        except Exception as e:
+            print(f"[quarantine] {file.name}: {e}")
+            quarantined.append({"file": str(file), "reason": str(e)})
+
+    return records, quarantined
 
 
 def strip_headers_footers(pages: list[str], edge=4, threshold=0.4) -> list[str]:
@@ -67,8 +78,10 @@ def strip_headers_footers(pages: list[str], edge=4, threshold=0.4) -> list[str]:
 def collapse_linewraps(text: str) -> str:
     return re.sub(r"(?<=[a-z,;])\n(?=[a-z])", " ", text)
 
-records = load_corpus()
+records, quarantined = load_corpus()
 print(f"Loaded {len(records)} documents")
+print(f"Quarantined {len(quarantined)} documents")
+
 if records:
     r = records[0]
     print(r["doc_id"], "|", r["title"], "|", r["metadata"]["num_pages"], "pages")
