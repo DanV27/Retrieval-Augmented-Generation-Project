@@ -4,7 +4,7 @@ import pdfplumber
 from pathlib import Path
 from collections import Counter
 import re
-
+import json
 
 
 
@@ -18,13 +18,14 @@ def load_pdf(path: Path):
         for page in pdf.pages:
             
             pages.append(page.extract_text() or "") # "" is for if page is empty(none)
+        raw_pages = "\n".join(pages)
         clean_pages = strip_headers_footers(pages)
         text = "\n".join(clean_pages)
         text = collapse_linewraps(text)
         text = re.sub(r"\.{4,}", " ", text)
 
 
-    return make_record(path, "pdf", text, metadata={"num_pages": len(pages)})
+    return make_record(path, "pdf", text, metadata={"num_pages": len(pages), "chars_raw": len(raw_pages)})
 
 
 def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
@@ -91,15 +92,21 @@ def dedupe(records):
     return unique, dupes #return the unique ones and dupe tally
 
 
+def main():
+    records, quarantined = load_corpus()
+    records, dupes = dedupe(records)
 
-records, quarantined = load_corpus()
-print(f"Loaded {len(records)} documents")
-print(f"Quarantined {len(quarantined)} documents")
+    report = {
+        "documents_processed": len(records),
+        "documents_quarantined": len(quarantined),
+        "chars_before_cleaning": sum(r["metadata"]["chars_raw"] for r in records),
+        "chars_after_cleaning": sum(len(r["text"]) for r in records),
+        "duplicates_removed": dupes,
+        "quarantined": quarantined,
+    }
+    print(json.dumps(report, indent=2))
+    Path("data/report.json").write_text(json.dumps(report, indent=2))
 
-records, dupes = dedupe(records)
-print(f"Duplicates removed: {dupes}")
 
-if records:
-    r = records[0]
-    print(r["doc_id"], "|", r["title"], "|", r["metadata"]["num_pages"], "pages")
-    print(r["text"][:1500])
+if __name__ == "__main__":
+    main()
