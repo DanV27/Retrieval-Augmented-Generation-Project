@@ -78,15 +78,28 @@ def strip_headers_footers(pages: list[str], edge=4, threshold=0.4) -> list[str]:
 def collapse_linewraps(text: str) -> str:
     return re.sub(r"(?<=[a-z,;])\n(?=[a-z])", " ", text)
 
+def dedupe(records):
+    seen, unique, dupes = {}, [], 0
+    for r in records:
+        fingerprint = hashlib.md5(
+            re.sub(r"\s+", " ", r["text"].lower()).encode()).hexdigest() #compute this doc's signature
+        if fingerprint in seen: #Have we already store this signature?
+            dupes += 1 #Yes, dont keep it, count it
+        else:
+            seen[fingerprint] = r["doc_id"] #NO, remember for next time
+            unique.append(r) #and keep this document
+    return unique, dupes #return the unique ones and dupe tally
+
+
+
 records, quarantined = load_corpus()
 print(f"Loaded {len(records)} documents")
 print(f"Quarantined {len(quarantined)} documents")
+
+records, dupes = dedupe(records)
+print(f"Duplicates removed: {dupes}")
 
 if records:
     r = records[0]
     print(r["doc_id"], "|", r["title"], "|", r["metadata"]["num_pages"], "pages")
     print(r["text"][:1500])
-
-    print(r["text"][50000:52000])   # somewhere in the body
-    print("=" * 60)
-    print(r["text"][150000:152000]) # somewhere later
