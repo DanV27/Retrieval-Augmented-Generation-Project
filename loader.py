@@ -16,9 +16,12 @@ def load_pdf(path: Path):
     with pdfplumber.open(path) as pdf:
 
         for page in pdf.pages:
+            
             pages.append(page.extract_text() or "") # "" is for if page is empty(none)
         clean_pages = strip_headers_footers(pages)
         text = "\n".join(clean_pages)
+        text = collapse_linewraps(text)
+        text = re.sub(r"\.{4,}", " ", text)
 
 
     return make_record(path, "pdf", text, metadata={"num_pages": len(pages)})
@@ -61,6 +64,8 @@ def strip_headers_footers(pages: list[str], edge=4, threshold=0.4) -> list[str]:
         cleaned.append("\n".join(kept))
     return cleaned
 
+def collapse_linewraps(text: str) -> str:
+    return re.sub(r"(?<=[a-z,;])\n(?=[a-z])", " ", text)
 
 records = load_corpus()
 print(f"Loaded {len(records)} documents")
