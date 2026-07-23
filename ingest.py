@@ -6,41 +6,36 @@ from collections import Counter
 import re
 import json
 
-
+def clean_text(text: str) -> str:
+    text = collapse_linewraps(text)
+    return re.sub(r"\.{4,}", " ", text)
 
 def load_pdf(path: Path):
-    """
-    Extract text from a single PDF and return a normalized record.
-    Pipiline: extract pages-> strip/headers/footers -> join -> collapes line-wraps-> remove dots
-    """
-
-    pages = []
-
+    pages_raw = []
     with pdfplumber.open(path) as pdf:
-
         for page in pdf.pages:
-            
-            pages.append(page.extract_text() or "") # "" is for if page is empty(none)
-        raw_pages = "\n".join(pages) #raw joined text(no cleaning touches it)
-        clean_pages = strip_headers_footers(pages) #Cleans text
-        text = "\n".join(clean_pages)
-        text = collapse_linewraps(text)
-        text = re.sub(r"\.{4,}", " ", text)
+            pages_raw.append(page.extract_text() or "")
+
+    raw_pages = "\n".join(pages_raw)
+    cleaned = [clean_text(p) for p in strip_headers_footers(pages_raw)]
+
+    pages = [{"page": i, "text": t} for i, t in enumerate(cleaned, start=1)]
+    text = "\n".join(cleaned)
+
+    return make_record(
+        path, "pdf", text, pages,
+        metadata={"num_pages": len(pages_raw), "chars_raw": len(raw_pages)},
+    )
 
 
-    return make_record(path, "pdf", text, metadata={"num_pages": len(pages), "chars_raw": len(raw_pages)})
-
-
-def make_record(path: Path, fmt: str, text: str, metadata: dict) -> dict:
-    """
-    Build the record shape for loader
-    """
+def make_record(path: Path, fmt: str, text: str, pages: list[dict], metadata: dict) -> dict:
     return {
         "doc_id": hashlib.md5(str(path).encode()).hexdigest()[:12],
         "title": path.stem,
         "source_path": str(path),
         "format": fmt,
-        "text": text,
+        "text": text,          # keep — everything downstream still uses it
+        "pages": pages,
         "metadata": metadata,
     }
 
@@ -129,6 +124,7 @@ def main():
     records, quarantined = load_corpus()
     records, dupes = dedupe(records)
 
+
     report = {
         "documents_processed": len(records),
         "documents_quarantined": len(quarantined),
@@ -136,9 +132,14 @@ def main():
         "chars_after_cleaning": sum(len(r["text"]) for r in records),
         "duplicates_removed": dupes,
         "quarantined": quarantined,
+        "pages_total": sum(len(r["pages"]) for r in records),
+        "documents": [{"doc_id": r["doc_id"], "title": r["title"], "pages": len(r["pages"])} for r in records],
+        
     }
     print(json.dumps(report, indent=2))
     Path("data/report.json").write_text(json.dumps(report, indent=2))
+
+    
 
 
 if __name__ == "__main__":
